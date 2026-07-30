@@ -1,0 +1,133 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+    id        String    @id @default(cuid())
+    fullName  String
+    email     String    @unique
+    password  String
+    avatar    String?
+    country   String?
+    language  String?
+    role      String
+    trips     Trip[]
+    bookings  Booking[]
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
+}
+
+model Trip {
+    id          String    @id @default(cuid())
+    title       String
+    description String?
+    budget      Decimal?
+    startDate   DateTime?
+    endDate     DateTime?
+    status      String
+    userId      String
+    user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    days        TripDay[]
+    bookings    Booking[]
+    createdAt   DateTime  @default(now())
+    updatedAt   DateTime  @updatedAt
+}
+
+model TripDay {
+    id         String     @id @default(cuid())
+    dayNumber  Int
+    date       DateTime?
+    tripId     String
+    trip       Trip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+    activities Activity[]
+}
+
+model Activity {
+    id String @id @default(cuid())
+    title       String
+    description String?
+    startTime DateTime?
+    endTime   DateTime?
+    duration      Int?
+    activityOrder Int
+    status        String
+    tripDayId String
+    tripDay   TripDay @relation(fields: [tripDayId], references: [id], onDelete: Cascade)
+    placeId String?
+    place   Place?  @relation(fields: [placeId], references: [id])
+}
+
+model PlaceCategory {
+    id   String @id @default(cuid())
+    name String
+    places Place[]
+}
+
+model Place {
+    id String @id @default(cuid())
+    name String
+    city     String
+    district String?
+    latitude  Decimal
+    longitude Decimal
+    description String?
+    entryPrice Decimal?
+    workingHours String?
+    phone String?
+    website String?
+    categoryId String
+    category   PlaceCategory @relation(fields: [categoryId], references: [id])
+    images PlaceImage[]
+    activities Activity[]
+}
+
+model PlaceImage {
+    id String @id @default(cuid())
+    imageUrl String
+    placeId String
+    place   Place  @relation(fields: [placeId], references: [id], onDelete: Cascade)
+}
+
+model Booking {
+    id String @id @default(cuid())
+    bookingType String
+    status      String
+    totalPrice Decimal?
+    bookingDate DateTime @default(now())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    tripId String
+    trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+    createdAt DateTime @default(now())
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  GUIDE
+}
+
+enum TripStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum BookingType {
+  GUIDE
+  HOTEL
+  ACTIVITY
+  TRANSPORTATION
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}

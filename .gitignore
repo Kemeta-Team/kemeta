@@ -42,6 +42,12 @@ lerna-debug.log*
 .env.production.local
 .env.local
 
+# Build directories
+dist
+backend/dist
+backend/node_modules
+backend/.env
+
 # temp directory
 .temp
 .tmp
