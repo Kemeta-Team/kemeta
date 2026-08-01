@@ -8,18 +8,21 @@ datasource db {
 }
 
 model User {
-    id        String    @id @default(cuid())
-    fullName  String
-    email     String    @unique
-    password  String
-    avatar    String?
-    country   String?
-    language  String?
-    role      String
-    trips     Trip[]
-    bookings  Booking[]
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @updatedAt
+    id         String    @id @default(cuid())
+    fullName   String
+    email      String    @unique
+    password   String
+    avatar     String?
+    country    String?
+    language   String?
+    role       String    @default("USER")
+    googleId   String?   @unique
+    provider   String    @default("local") // "local" | "google"
+    isVerified Boolean   @default(false)
+    trips      Trip[]
+    bookings   Booking[]
+    createdAt  DateTime  @default(now())
+    updatedAt  DateTime  @updatedAt
 }
 
 model Trip {
