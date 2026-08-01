@@ -1,14 +1,10 @@
-import {
-  IsEmail,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
-export class ResendOtpDto {
+export class LoginDto {
   @IsEmail()
   email: string;
 
-  @IsOptional()
   @IsString()
-  type?: string = 'EMAIL_VERIFICATION';
+  @MinLength(6)
+  password: string;
 }

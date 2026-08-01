@@ -5,13 +5,13 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Patch,
   Post,
   Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { Request, Response } from 'express';
+import { AuthGuard } from '@nestjs/passport';
+import type { Request, Response } from 'express';
 
 import { AuthService } from './auth.service';
 
@@ -22,8 +22,16 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgetPasswordDto } from './dto/forget-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
+import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
+import { setAuthCookies, clearAuthCookies } from '../../utils/setAuthCookies';
 
-// import { JwtAuthGuard } from './guards/jwt-auth.guard';
+interface AuthenticatedRequest extends Request {
+  user: {
+    id: string;
+    email: string;
+    role: string;
+  };
+}
 
 @Controller('auth')
 export class AuthController {
@@ -38,24 +46,23 @@ export class AuthController {
       success: true,
       message: 'Register successfully',
       user: result.user,
+      otpToken: result.otpToken,
     };
   }
 
   // Login
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
     const { user, tokens } = await this.authService.login(dto);
 
-    this.authService.setAuthCookies(
-      res,
-      tokens.accessToken,
-      tokens.refreshToken,
-    );
+    setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
 
     return {
+      success: true,
       user,
       tokens,
     };
@@ -70,18 +77,20 @@ export class AuthController {
 
     await this.authService.logout(refreshToken);
 
-    this.authService.clearAuthCookies(res);
+    clearAuthCookies(res);
 
     return {
+      success: true,
       message: 'Logout successfully',
     };
   }
 
   // Refresh Token
   @Post('refresh-token')
+  @HttpCode(HttpStatus.OK)
   async refreshToken(
     @Req() req: Request,
-    @Body() body: any,
+    @Body() body: { refreshToken?: string },
     @Res({ passthrough: true }) res: Response,
   ) {
     const token =
@@ -93,11 +102,7 @@ export class AuthController {
       token as string,
     );
 
-    this.authService.setAuthCookies(
-      res,
-      tokens.accessToken,
-      tokens.refreshToken,
-    );
+    setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
 
     return {
       success: true,
@@ -109,40 +114,49 @@ export class AuthController {
 
   // Verify OTP
   @Post('verify-otp')
+  @HttpCode(HttpStatus.OK)
   async verifyOtp(@Body() dto: VerifyOtpDto) {
     await this.authService.verifyOtp(dto);
 
     return {
+      success: true,
       message: 'OTP verified successfully',
     };
   }
 
   // Resend OTP
   @Post('resend-otp')
+  @HttpCode(HttpStatus.OK)
   async resendOtp(@Body() dto: ResendOtpDto) {
-    await this.authService.resendOtp(dto);
+    const result = await this.authService.resendOtp(dto);
 
     return {
+      success: true,
       message: 'OTP sent successfully',
+      otpToken: result.otpToken,
     };
   }
 
   // Forget Password
   @Post('forget-password')
+  @HttpCode(HttpStatus.OK)
   async forgetPassword(@Body() dto: ForgetPasswordDto) {
     await this.authService.forgetPassword(dto);
 
     return {
+      success: true,
       message: 'Reset password link sent',
     };
   }
 
   // Reset Password
   @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
   async resetPassword(@Body() dto: ResetPasswordDto) {
     await this.authService.resetPassword(dto);
 
     return {
+      success: true,
       message: 'Password reset successfully',
     };
   }
@@ -154,58 +168,47 @@ export class AuthController {
     return this.authService.findUsers();
   }
 
-  // Deactivate Account
-  @UseGuards(JwtAuthGuard)
-  @Patch('deactivate')
-  async deactivateAccount(
-    @Req() req: any,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    await this.authService.deactivateAccount(req.user.id);
-
-    this.authService.clearAuthCookies(res);
-
-    return {
-      message: 'Account deactivated successfully',
-    };
-  }
-
-  // Reactivate Account
-  @Patch('reactivate')
-  async reactivateAccount(@Body() dto: ReactivateAccountDto) {
-    await this.authService.reactivateAccount(dto.email);
-
-    return {
-      message: 'Account reactivated successfully',
-    };
-  }
-
   // Delete Account
   @UseGuards(JwtAuthGuard)
   @Delete('delete')
+  @HttpCode(HttpStatus.OK)
   async deleteAccount(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
     await this.authService.deleteAccount(req.user.id);
 
-    this.authService.clearAuthCookies(res);
+    clearAuthCookies(res);
 
     return {
+      success: true,
       message: 'Account deleted successfully',
     };
   }
 
-  // Google Callback
-
+  // Google OAuth
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  async googleAuth(@Req() req) {}
+  async googleAuth() {
+    // Passport بيتولى تحويل المستخدم لصفحة Google تلقائيًا
+  }
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  async googleAuthRedirect(@Req() req) {
-    // هنا ترجع JWT أو تسجل دخول في النظام
-    return req.user;
+  async googleAuthRedirect(
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { user, tokens } = await this.authService.loginWithGoogle(
+      req.user as any,
+    );
+
+    setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+
+    return {
+      success: true,
+      user,
+      tokens,
+    };
   }
 }
